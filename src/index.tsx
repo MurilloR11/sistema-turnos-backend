@@ -6,7 +6,7 @@ const app = new Hono<{ Bindings: CloudflareBindings }>();
 app.use(renderer)
 
 app.get('/', (c) => {
-  return c.render(<h1>Hello from test-1!</h1>)
+  return c.render(<h1>Hello from test-1 2!</h1>)
 })
 
 export default app
