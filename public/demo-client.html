@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Turnos - Demo Cliente</title>
+  <script src="https://cdn.socket.io/4.8.0/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.disconnected {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .card h2 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+
+    .messages-container {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 5px;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #f9f9f9;
+    }
+
+    .message {
+      margin: 8px 0;
+      padding: 10px;
+      background: white;
+      border-radius: 5px;
+      border-left: 3px solid #667eea;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message strong {
+      color: #667eea;
+    }
+
+    .message .time {
+      color: #999;
+      font-size: 0.85em;
+      margin-left: 10px;
+    }
+
+    .system-message {
+      background: #fff3cd;
+      border-left-color: #ffc107;
+      font-style: italic;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #5568d3;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .turnos-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .turno-card {
+      background: #f9f9f9;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border-left: 4px solid #667eea;
+      animation: slideIn 0.3s ease;
+    }
+
+    .turno-card.pendiente {
+      border-left-color: #ffc107;
+    }
+
+    .turno-card.confirmado {
+      border-left-color: #28a745;
+    }
+
+    .turno-card.cancelado {
+      border-left-color: #dc3545;
+      opacity: 0.6;
+    }
+
+    .turno-card h3 {
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .turno-card p {
+      color: #666;
+      margin: 4px 0;
+      font-size: 0.9em;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 0.75em;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    .badge.pendiente {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .badge.confirmado {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge.cancelado {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .online-users {
+      list-style: none;
+    }
+
+    .online-users li {
+      padding: 8px;
+      margin: 5px 0;
+      background: #f0f0f0;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .online-indicator {
+      width: 8px;
+      height: 8px;
+      background: #28a745;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .typing-indicator {
+      color: #667eea;
+      font-style: italic;
+      font-size: 0.9em;
+      margin: 5px 0;
+    }
+
+    .room-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .room-tab {
+      padding: 8px 16px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+
+    .room-tab.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .stat-card .number {
+      font-size: 2em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .stat-card .label {
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏥 Sistema de Turnos Médicos - Demo en Tiempo Real</h1>
+      <div id="status" class="status disconnected">
+        🔴 Desconectado del servidor
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <!-- Chat -->
+      <div class="card">
+        <h2>💬 Chat en Tiempo Real</h2>
+        
+        <div class="room-tabs">
+          <button class="room-tab active" onclick="changeRoom('general')">General</button>
+          <button class="room-tab" onclick="changeRoom('urgencias')">Urgencias</button>
+          <button class="room-tab" onclick="changeRoom('consultas')">Consultas</button>
+        </div>
+
+        <div id="messages" class="messages-container"></div>
+        
+        <div id="typingIndicator" class="typing-indicator" style="display: none;">
+          Alguien está escribiendo...
+        </div>
+
+        <form id="chatForm" class="form-group">
+          <input 
+            type="text" 
+            id="messageInput" 
+            placeholder="Escribe un mensaje..." 
+            disabled
+          >
+          <button type="submit" id="sendBtn" disabled>Enviar</button>
+        </form>
+      </div>
+
+      <!-- Usuarios Online -->
+      <div class="card">
+        <h2>👥 Usuarios Online (<span id="onlineCount">0</span>)</h2>
+        <ul id="onlineUsers" class="online-users">
+          <li style="color: #999;">Conectando al servidor...</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Turnos -->
+    <div class="card">
+      <h2>📅 Turnos Programados</h2>
+      <div id="turnosList" class="turnos-list">
+        <p style="color: #999;">Cargando turnos...</p>
+      </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="number" id="statMessages">0</div>
+        <div class="label">Mensajes Recibidos</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="statTurnos">0</div>
+        <div class="label">Turnos Activos</div>
+      </div>
+      <div class="stat-card">
+        <div class="number" id="statEvents">0</div>
+        <div class="label">Eventos Totales</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ Configuración ============
+    const SOCKET_URL = 'http://localhost:3000';
+    let currentRoom = 'general';
+    let messageCount = 0;
+    let eventCount = 0;
+    let typingTimeout = null;
+
+    // ============ Elementos del DOM ============
+    const statusDiv = document.getElementById('status');
+    const messagesDiv = document.getElementById('messages');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const onlineUsersDiv = document.getElementById('onlineUsers');
+    const onlineCountSpan = document.getElementById('onlineCount');
+    const turnosListDiv = document.getElementById('turnosList');
+    const typingIndicator = document.getElementById('typingIndicator');
+    const statMessages = document.getElementById('statMessages');
+    const statTurnos = document.getElementById('statTurnos');
+    const statEvents = document.getElementById('statEvents');
+
+    // ============ Conectar a Socket.IO ============
+    console.log('Conectando a', SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      auth: {
+        token: 'demo_user_' + Math.random().toString(36).substr(2, 5)
+      },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
+
+    // ============ Event Handlers de Conexión ============
+    socket.on('connect', () => {
+      console.log('✅ Conectado:', socket.id);
+      updateStatus(true);
+      messageInput.disabled = false;
+      sendBtn.disabled = false;
+      
+      // Marcar como online
+      socket.emit('presence:online');
+      
+      // Unirse a la sala actual
+      socket.emit('chat:join_room', { roomId: currentRoom });
+      
+      // Suscribirse a turnos
+      socket.emit('turnos:subscribe', {});
+      
+      // Cargar turnos
+      loadTurnos();
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('❌ Desconectado:', reason);
+      updateStatus(false);
+      messageInput.disabled = true;
+      sendBtn.disabled = true;
+    });
+
+    socket.on('connected', (data) => {
+      console.log('🎉 Servidor confirmó conexión:', data);
+      addSystemMessage(`Conectado exitosamente (ID: ${data.clientId.substr(0, 8)}...)`);
+    });
+
+    socket.on('error', (error) => {
+      console.error('⚠️ Socket error:', error);
+      addSystemMessage(`Error: ${error.message}`, 'error');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      addSystemMessage('Error de conexión. Reintentando...', 'error');
+    });
+
+    // ============ Event Handlers de Chat ============
+    socket.on('chat:message', (data) => {
+      console.log('📨 Mensaje:', data);
+      addMessage(data);
+      messageCount++;
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('chat:user_joined', (data) => {
+      console.log('👋 Usuario unido:', data);
+      if (data.room === currentRoom) {
+        addSystemMessage(`${data.username} se unió a la sala`);
+      }
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('chat:user_left', (data) => {
+      console.log('👋 Usuario salió:', data);
+      if (data.room === currentRoom) {
+        addSystemMessage(`${data.username} salió de la sala`);
+      }
+      eventCount++;
+      updateStats();
+    });
+
+    // ============ Event Handlers de Presencia ============
+    socket.on('presence:user_online', (data) => {
+      console.log('🟢 Usuario online:', data);
+      addOnlineUser(data);
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('presence:user_offline', (data) => {
+      console.log('⚫ Usuario offline:', data);
+      removeOnlineUser(data.userId);
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('presence:user_typing', (data) => {
+      if (data.room === currentRoom || !data.room) {
+        showTypingIndicator();
+      }
+    });
+
+    // ============ Event Handlers de Turnos ============
+    socket.on('turnos:created', (turno) => {
+      console.log('🆕 Turno creado:', turno);
+      addSystemMessage(`Nuevo turno: ${turno.paciente} - ${turno.fecha} ${turno.hora}`);
+      loadTurnos();
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('turnos:updated', (turno) => {
+      console.log('✏️ Turno actualizado:', turno);
+      addSystemMessage(`Turno actualizado: ${turno.paciente} → ${turno.estado.toUpperCase()}`);
+      loadTurnos();
+      eventCount++;
+      updateStats();
+    });
+
+    socket.on('turnos:cancelled', (data) => {
+      console.log('❌ Turno cancelado:', data);
+      addSystemMessage(`Turno #${data.turnoId} cancelado`);
+      loadTurnos();
+      eventCount++;
+      updateStats();
+    });
+
+    // ============ Funciones de UI ============
+    function updateStatus(connected) {
+      if (connected) {
+        statusDiv.className = 'status connected';
+        statusDiv.textContent = '🟢 Conectado al servidor';
+      } else {
+        statusDiv.className = 'status disconnected';
+        statusDiv.textContent = '🔴 Desconectado del servidor';
+        onlineUsersDiv.innerHTML = '<li style="color: #999;">Desconectado</li>';
+        onlineCountSpan.textContent = '0';
+      }
+    }
+
+    function addMessage(data) {
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message';
+      const time = new Date(data.timestamp).toLocaleTimeString();
+      messageEl.innerHTML = `
+        <strong>${data.username}</strong>
+        <span class="time">${time}</span>
+        <div>${escapeHtml(data.message)}</div>
+      `;
+      messagesDiv.appendChild(messageEl);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function addSystemMessage(message, type = 'info') {
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message system-message';
+      const time = new Date().toLocaleTimeString();
+      messageEl.innerHTML = `
+        <span class="time">${time}</span>
+        <div>ℹ️ ${escapeHtml(message)}</div>
+      `;
+      messagesDiv.appendChild(messageEl);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function addOnlineUser(user) {
+      // Evitar duplicados
+      removeOnlineUser(user.userId);
+      
+      const li = document.createElement('li');
+      li.id = 'user-' + user.userId;
+      li.innerHTML = `
+        <span class="online-indicator"></span>
+        ${escapeHtml(user.username)}
+      `;
+      onlineUsersDiv.appendChild(li);
+      updateOnlineCount();
+    }
+
+    function removeOnlineUser(userId) {
+      const userEl = document.getElementById('user-' + userId);
+      if (userEl) {
+        userEl.remove();
+        updateOnlineCount();
+      }
+    }
+
+    function updateOnlineCount() {
+      const count = onlineUsersDiv.querySelectorAll('li').length;
+      onlineCountSpan.textContent = count;
+    }
+
+    function showTypingIndicator() {
+      typingIndicator.style.display = 'block';
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        typingIndicator.style.display = 'none';
+      }, 2000);
+    }
+
+    function updateStats() {
+      statMessages.textContent = messageCount;
+      statEvents.textContent = eventCount;
+    }
+
+    // ============ Funciones de Chat ============
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const message = messageInput.value.trim();
+      
+      if (message) {
+        socket.emit('chat:message', { message, room: currentRoom });
+        messageInput.value = '';
+      }
+    });
+
+    // Indicador de escritura
+    let isTyping = false;
+    messageInput.addEventListener('input', () => {
+      if (!isTyping) {
+        isTyping = true;
+        socket.emit('presence:typing', { isTyping: true, room: currentRoom });
+      }
+      
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        isTyping = false;
+        socket.emit('presence:typing', { isTyping: false, room: currentRoom });
+      }, 1000);
+    });
+
+    // ============ Funciones de Salas ============
+    function changeRoom(roomId) {
+      // Salir de la sala actual
+      socket.emit('chat:leave_room', { roomId: currentRoom });
+      
+      // Actualizar sala actual
+      currentRoom = roomId;
+      
+      // Unirse a nueva sala
+      socket.emit('chat:join_room', { roomId });
+      
+      // Actualizar UI
+      document.querySelectorAll('.room-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Limpiar mensajes
+      messagesDiv.innerHTML = '';
+      addSystemMessage(`Te uniste a la sala: ${roomId}`);
+    }
+
+    // ============ Funciones de Turnos ============
+    async function loadTurnos() {
+      try {
+        const response = await fetch(SOCKET_URL + '/api/turnos');
+        const data = await response.json();
+        displayTurnos(data.turnos || []);
+        statTurnos.textContent = (data.turnos || []).filter(t => t.estado !== 'cancelado').length;
+      } catch (error) {
+        console.error('Error cargando turnos:', error);
+        turnosListDiv.innerHTML = '<p style="color: #dc3545;">Error al cargar turnos</p>';
+      }
+    }
+
+    function displayTurnos(turnos) {
+      if (turnos.length === 0) {
+        turnosListDiv.innerHTML = '<p style="color: #999;">No hay turnos programados</p>';
+        return;
+      }
+
+      turnosListDiv.innerHTML = turnos.map(turno => `
+        <div class="turno-card ${turno.estado}">
+          <h3>👤 ${escapeHtml(turno.paciente)}</h3>
+          <p>📅 ${turno.fecha} a las ${turno.hora}</p>
+          <p>👨‍⚕️ ${escapeHtml(turno.doctor)}</p>
+          <p>🏥 ${escapeHtml(turno.especialidad)}</p>
+          <span class="badge ${turno.estado}">${turno.estado}</span>
+        </div>
+      `).join('');
+    }
+
+    // ============ Utilidades ============
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ============ Inicialización ============
+    console.log('Demo cliente inicializado');
+    addSystemMessage('Iniciando conexión al servidor...');
+  </script>
+</body>
+</html>

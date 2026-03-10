@@ -2,19 +2,26 @@
 	"name": "sistema-turnos-backend",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
+		"dev": "tsx watch src/server.ts",
+		"start": "node dist/server.js",
+		"build": "tsc",
 		"preview": "wrangler dev",
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings"
 	},
 	"dependencies": {
-		"hono": "^4.12.5"
+		"@hono/node-server": "^1.19.11",
+		"cors": "^2.8.6",
+		"hono": "^4.12.5",
+		"socket.io": "^4.8.3"
 	},
 	"devDependencies": {
 		"@hono/vite-build": "^1.2.0",
 		"@hono/vite-dev-server": "^0.18.2",
+		"@types/cors": "^2.8.19",
 		"@types/node": "^25.3.3",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3",
 		"vite": "^6.3.5",
 		"wrangler": "^4.70.0"
 	}
